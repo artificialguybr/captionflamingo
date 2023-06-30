@@ -395,6 +395,13 @@ def main() -> None:
         prompt = prompt.replace("\n", "") # in case captions had newlines
         print(f" \n** Final full prompt with example pairs: {prompt}")
 
+    if config.clip_artist or config.clip_flavor or config.clip_medium or config.clip_movement or config.clip_trending:
+        logging.info("Loading Clip Model...")
+        config._clip = Interrogator(Config(clip_model_name=config.clip_model_name,
+                                           captionr_config=config,
+                                           quiet=config.quiet,
+                                           data_path=os.path.join(config.base_path,'data'),
+                                           cache_path=os.path.join(config.base_path,'data')))
         # os.walk all files in args.data_root recursively
     for folder in config.folder:    
         for root, dirs, files in os.walk(str(folder)):
