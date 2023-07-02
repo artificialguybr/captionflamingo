@@ -10,6 +10,7 @@ from captionr.git_cap import Git
 import torch
 import re
 from thefuzz import fuzz
+from captionr.flamingo_cap import Flamingo
 
 @dataclass
 class CaptionrConfig:
@@ -73,7 +74,7 @@ class CaptionrConfig:
     repetition_penalty = 1.0
     length_penalty = 1.0
     _flamingo = None
-
+    
 class Captionr:
     def __init__(self, config:CaptionrConfig) -> None:
         self.config = config
