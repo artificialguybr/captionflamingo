@@ -357,10 +357,10 @@ def main() -> None:
             chunksize += 1
         return chunksize
     
-    #process_map(cptr.process_img, paths, max_workers=config.num_workers,chunksize=calc_chunksize(config.num_workers,len(paths)))
+    process_map(cptr.process_img, paths, max_workers=config.num_workers,chunksize=calc_chunksize(config.num_workers,len(paths)))
 
-    for path in tqdm.tqdm(paths):
-        cptr.process_img(path)
+    #for path in tqdm.tqdm(paths):
+        #cptr.process_img(path)
 
 if __name__ == "__main__":
     set_start_method('spawn')
