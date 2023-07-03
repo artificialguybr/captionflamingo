@@ -6,6 +6,31 @@ import os
 
 SUPPORTED_EXT = ['.jpg', '.png']  # Add more extensions if needed
 
+def remove_duplicates(string):
+    words = string.split(', ')
+    unique_words = []
+    for word in words:
+        if word not in unique_words:
+            unique_words.append(word)
+        else:
+            break
+    return ', '.join(unique_words)
+
+def load_examples(example_root, image_processor):
+    examples = []
+    if example_root is not None:
+        for root, dirs, files in os.walk(example_root):
+            for file in files:
+                ext = os.path.splitext(file)[-1].lower()
+                if ext in SUPPORTED_EXT:
+                    txt_file = os.path.splitext(file)[0] + ".txt"
+                    with open(os.path.join(root, txt_file), 'r') as f:
+                        caption = f.read()
+                    image = Image.open(os.path.join(root, file))
+                    vision_x = [image_processor(image).unsqueeze(0)]
+                    examples.append((caption, vision_x))
+    return examples
+
 class Flamingo:
     model_name = "openflamingo/OpenFlamingo-9B-vitl-mpt7b"
     device = None
@@ -30,22 +55,8 @@ class Flamingo:
         checkpoint_path = hf_hub_download(self.model_name, "checkpoint.pt")
         self.model.load_state_dict(torch.load(checkpoint_path), strict=False)
         self.model.to(0, dtype=self.dtype)
-        self.examples = self.load_examples(example_root)
+        self.examples = load_examples(example_root, self.image_processor)
 
-    def load_examples(self, example_root):
-        examples = []
-        if example_root is not None:
-            for root, dirs, files in os.walk(example_root):
-                for file in files:
-                    ext = os.path.splitext(file)[-1].lower()
-                    if ext in SUPPORTED_EXT:
-                        txt_file = os.path.splitext(file)[0] + ".txt"
-                        with open(os.path.join(root, txt_file), 'r') as f:
-                            caption = f.read()
-                        image = Image.open(os.path.join(root, file))
-                        vision_x = [self.image_processor(image).unsqueeze(0)]
-                        examples.append((caption, vision_x))
-        return examples
 
     def caption(self, img: Image, **kwargs) -> str:
         # Add the new image to the examples
@@ -65,38 +76,31 @@ class Flamingo:
         prompt = prompt.replace("\n", "") # in case captions had newlines
 
         # Generate the captions
-        generated = self.model.generate(
-            input_ids=self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.device),
-            decoder_start_token_id=self.model.config.pad_token_id,
-            min_length=len(self.tokenizer(prompt, return_tensors="pt").input_ids[0]) + kwargs.get('min_new_tokens', 20),
-            max_length=len(self.tokenizer(prompt, return_tensors="pt").input_ids[0]) + kwargs.get('max_new_tokens', 50),
-            num_beams=kwargs.get('num_beams', 3),
-            temperature=kwargs.get('temperature', 1.0),
-            top_k=kwargs.get('top_k', 0),
-            top_p=kwargs.get('top_p', 0.9),
-            repetition_penalty=kwargs.get('repetition_penalty', 1.0),
-            length_penalty=kwargs.get('length_penalty', 1.0),
-            vision_data=vision_x,
+        lang_x = self.tokenizer(
+            [prompt], # blank for image captioning
+            return_tensors="pt",
         )
+        lang_x.to(self.device)
+
+        input_ids = lang_x["input_ids"].to(self.device)
+
+        with torch.cuda.amp.autocast(dtype=self.dtype):
+            generated_text = self.model.generate(
+                vision_x=vision_x,
+                lang_x=input_ids,
+                attention_mask=lang_x["attention_mask"],
+                max_new_tokens=kwargs.get('max_new_tokens', 50),
+                min_new_tokens=kwargs.get('min_new_tokens', 20),
+                num_beams=kwargs.get('num_beams', 3),
+                temperature=kwargs.get('temperature', 1.0),
+                top_k=kwargs.get('top_k', 0),
+                top_p=kwargs.get('top_p', 0.9),
+                repetition_penalty=kwargs.get('repetition_penalty', 1.0),
+            )
 
         # Decode the generated captions
-        print(f"Generated: {generated}")
-        decoded = self.tokenizer.decode(generated[0], skip_special_tokens=True)
-        print(f"Decoded: {decoded}")
-        caption = decoded.split(output_prompt)[-1].strip()
-        print(f"Caption: {caption}")
-        return caption
-    
-    def process_img(self, img_path):
-        with Image.open(img_path).convert('RGB') as img:
-            return self.caption(img)
+        generated_text = self.tokenizer.decode(generated_text[0][len(input_ids[0]):], skip_special_tokens=True)
+        generated_text = generated_text.split(output_prompt)[0]
+        generated_text = remove_duplicates(generated_text)
 
-    def remove_duplicates(self, string):
-        words = string.split(', ')
-        unique_words = []
-        for word in words:
-            if word not in unique_words:
-                unique_words.append(word)
-            else:
-                break
-        return ', '.join(unique_words)
+        return generated_text

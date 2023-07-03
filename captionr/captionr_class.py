@@ -166,7 +166,7 @@ class Captionr:
                             logging.debug('Getting Flamingo caption')
                             try:
                                 #new_caption = config._flamingo.caption(img)
-                                new_caption = config._flamingo.process_img(img_path)
+                                new_caption = config._flamingo.caption(img)
                             except:
                                    logging.exception("Exception during Flamingo captioning")
                                    continue
