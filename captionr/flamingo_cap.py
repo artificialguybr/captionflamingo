@@ -80,10 +80,16 @@ class Flamingo:
         )
 
         # Decode the generated captions
+        print(f"Generated: {generated}")
         decoded = self.tokenizer.decode(generated[0], skip_special_tokens=True)
+        print(f"Decoded: {decoded}")
         caption = decoded.split(output_prompt)[-1].strip()
-
+        print(f"Caption: {caption}")
         return caption
+    
+    def process_img(self, img_path):
+        with Image.open(img_path).convert('RGB') as img:
+            return self.caption(img)
 
     def remove_duplicates(self, string):
         words = string.split(', ')

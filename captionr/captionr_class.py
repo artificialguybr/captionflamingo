@@ -21,7 +21,7 @@ class CaptionrConfig:
     git_pass = False
     coca_pass = False
     blip_pass = False
-    model_order = 'coca,git,blip'
+    model_order = 'coca,git,blip,flamingo'
     use_blip2 = False
     blip2_model = None
     blip2_question_file:pathlib.Path = None
@@ -73,7 +73,7 @@ class CaptionrConfig:
     top_p = 0.9
     repetition_penalty = 1.0
     length_penalty = 1.0
-    _flamingo = None
+    _flamingo:Flamingo = None
     
 class Captionr:
     def __init__(self, config:CaptionrConfig) -> None:
@@ -165,7 +165,8 @@ class Captionr:
                         elif m == 'flamingo' and config.flamingo_pass and config._flamingo is not None and not got_cap:
                             logging.debug('Getting Flamingo caption')
                             try:
-                                new_caption = config._flamingo.caption(img)
+                                #new_caption = config._flamingo.caption(img)
+                                new_caption = config._flamingo.process_img(img_path)
                             except:
                                    logging.exception("Exception during Flamingo captioning")
                                    continue
